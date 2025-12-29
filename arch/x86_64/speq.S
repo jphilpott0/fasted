@@ -95,7 +95,7 @@ _new_speq:
 	imul			rbp, r8								; base_addr = char * (mmax * 64).
 
 	mov				rax, r12							; rename rax = rmwmask.
-	or 				al, byte [rbp + rbx]				; load required byte, OR single bit in.
+	or				al, byte [rbp + rbx]				; load required byte, OR single bit in.
 	mov				byte [rbp + rbx], al				; write back.
 
 	dec				rsi									; dec number of chars left.

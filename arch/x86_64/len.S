@@ -26,7 +26,7 @@ global	_len_calculate_mmax
 	%assign off 0
 
 	%rep %3
-		vpmaxuq		zmm%+i, zmm%+i, [%1 + %2 + off] 	; max(acc_i, fatptr_i).
+		vpmaxuq		zmm%+i, zmm%+i, [%1 + %2 + off]		; max(acc_i, fatptr_i).
 
 		%assign i	(i+1)
 		%assign	off	(off+%4)
