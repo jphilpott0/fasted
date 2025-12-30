@@ -1,16 +1,39 @@
 //! Module for constructing the speq data structure.
 
 use std::borrow::Borrow;
+use std::ffi::c_void;
 use std::marker::PhantomData;
 
 use crate::arena::Arena;
 
+unsafe extern "C" {
+    pub(crate) unsafe fn _new_speq(
+        arena: *mut c_void,
+        arr_ptr: *const SliceStr,
+        arr_len: usize,
+    ) -> usize;
+}
+
 pub struct Speq;
 
 impl Speq {
-    #[allow(unused_variables)]
-    pub(crate) unsafe fn new_in(arena: &mut Arena, data: &[SliceStr]) {
-        todo!();
+    pub(crate) unsafe fn new_in<'a, T>(arena: &mut Arena, data: &T)
+    where
+        T: AsRef<[&'a [u8]]>,
+    {
+        let slices: Vec<SliceStr> = data.as_ref().iter().map(SliceStr::from).collect();
+
+        assert!(
+            slices.len() <= 512,
+            "Cannot create a speq with more than 512 strings ..."
+        );
+
+        // Safety:
+        let status = unsafe { _new_speq(arena.as_mut_ptr(), slices.as_ptr(), slices.len()) };
+
+        if status != 0 {
+            panic!("Could not build speq ...");
+        }
     }
 }
 
@@ -66,6 +89,8 @@ impl<'a> SliceStr<'a> {
 
 #[cfg(test)]
 mod tests {
+    use std::iter::repeat_n;
+
     use super::*;
 
     #[test]
@@ -88,5 +113,18 @@ mod tests {
         let slice_str2 = SliceStr::from(string.as_bytes());
 
         assert_eq!(slice_str2.len, 3);
+    }
+
+    #[test]
+    fn test_new_speq_in_basic() {
+        let strings: Vec<Vec<u8>> = (0..512)
+            .map(|x| repeat_n(b'a', x + 1).collect::<Vec<u8>>())
+            .collect();
+
+        let slices = strings.iter().map(|x| x.as_slice()).collect::<Vec<&[u8]>>();
+
+        let mut arena = unsafe { Arena::new_from(&slices) };
+
+        unsafe { Speq::new_in(&mut arena, &slices) };
     }
 }
