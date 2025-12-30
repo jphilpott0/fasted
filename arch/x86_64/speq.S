@@ -65,10 +65,14 @@ _new_speq:
     shr             rbx, 3                              ; byte_offset = string_counter // 8.
     lea             rbx, [r10 + rbx]                    ; combine speq ptr + byte_offset.
 
-    mov byte [r15 + STORE_MASK_OFFSET + rsi], 0x80     ; mark this length in the storemask.
+    mov byte [r15 + STORE_MASK_OFFSET + rsi], 0x80      ; mark this length in the storemask.
 
     test            rsi, rsi                            ; check if empty str.
     jz              .loop_outer_tail                    ; skip inner loop if so.
+
+    ; defo try to scrape back some registers and 2x 
+    ; unroll this. extra guaranteed mispredict will
+    ; be worth it for 2x throughput.
 
     ; could avoid rmw pattern by doing fire-and-forget
     ; style byte stores and then using vpmovb2m + kmov 
@@ -79,14 +83,63 @@ _new_speq:
     ; include both methods and route depending on mmax
     ; and number of speq re-uses expected.
 
-    ; defo try to scrape back some registers and 2x 
-    ; unroll this though. extra guaranteed mispredict
-    ; will be worth it for 2x throughput.
+    ; actually, can this better. instead of this, start
+    ; with our strings, and place the first, say, eight
+    ; chars into a 4 KiB reusable scratch space. this
+    ; is only a single page fault. and also small enough
+    ; to reside entirely in L1 and skip shared L3/DRAM
+    ; bandwidth issues. iterate over first eight chars
+    ; of each string and write back in AoSoA layout with
+    ; much simpler, entirely AGU-based, addressing. we
+    ; can do this at 2 chars/cycle. we also need to 
+    ; maintain an alphabet bitmask. we can't seem to do
+    ; this at 2 chars/cycle with a 256-bit mask (fastest
+    ; way i can think for two chars is 2 shuffle + 2 
+    ; shift + 1 vpternlog, but that's 5 uops per cycle 
+    ; on average, which even zen4/5 can't do). so we'd
+    ; need to decide to limit alphabet_size to 128,
+    ; not 256 and use 2x pslldq + 1x vpternlog with
+    ; xmms (3 uops per cycle on average, works for even
+    ; pre-lion cove intel and totally fine for zen4/5).
+    ; does require AVX512VL for vpternlog though. having
+    ; 128 different chars to work with is enough. if
+    ; it weren't then chances are you need so many
+    ; more that even 256 wouldn't be enough. the only
+    ; case is when you wanted to input UTF-8 that hasn't
+    ; been confirmed to entirely use standard 7-bit 
+    ; ASCII. we already can't support unicode, so not
+    ; supporting extended-ASCII isn't outrageous. if
+    ; someone truly does want to use extended-ASCII,
+    ; they can just manually preprocess their data
+    ; to map those chars to the weird control chars
+    ; that exist in 7-bit ASCII. will work fine here.
+    ; if we do that, we can transform all strings from
+    ; AoS to AoSoA layout in 4 KiB blocks, eliminating
+    ; the memory bandwidth + page fault issues, all 
+    ; while updating an alphabet bitmask at 2 chars
+    ; per cycle. then, for each symbol in the final
+    ; alphabet mask, avx512 compare 64 bytes with
+    ; said symbol for equality. kmov the resulting
+    ; mask to the correct position in the speq.
+    ; this is O(alphabet_size * m / 64). the current
+    ; method is O(m), but has much slower loop. so
+    ; provided alphabet_size is small, which it normally
+    ; is, then this is mcuh much faster. right now we're
+    ; at 0.1 chars/cycle. this can get us up to the 
+    ; maximum of 2 chars/cycle minus time to do the
+    ; post-processing (64 * alphabet_size * (vpcmp + 
+    ; kmov) => when pipelined, around 64 * alphabet_size
+    ; cycles). so for each of the 4096 chars processed,
+    ; this is alphabet_size/64 extra cycles of time. so
+    ; basically we maintain the perfect 2 chars/cycle rate.
+    ; so this is 20x faster than what i currently have.
+    ; defo worthwhile to try this out in the future.
+
 
 .loop_inner:
     movzx           rbp, byte [rdi + rsi - 1]           ; get next char.
 
-    mov byte [r15 + ALPHABET_MASK_OFFSET + rbp], 0x80  ; mark this char in alphabetmask.
+    mov byte [r15 + ALPHABET_MASK_OFFSET + rbp], 0x80   ; mark this char in alphabetmask.
 
     imul            rbp, r8                             ; base_addr = char * (mmax * 64).
 
@@ -108,7 +161,7 @@ _new_speq:
     shr             r8, 6                               ; r8 = (mmax * 64) >> 6.
     inc             r8                                  ; r8 = mmax + 1.
     xor             rbx, rbx                            ; zero counter.
-    lea             rdi, [r15 + STORE_MASK_OFFSET]     ; calculate store mask ptr.
+    lea             rdi, [r15 + STORE_MASK_OFFSET]      ; calculate store mask ptr.
 
     ; could vectorise this later, but small string 
     ; perf may suffer from extra mispredict.

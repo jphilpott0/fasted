@@ -115,6 +115,11 @@ mod tests {
         assert_eq!(slice_str2.len, 3);
     }
 
+    // Safety: not even remotely safe. (todo: docs).
+    unsafe fn load_m512<T>(ptr: *const T, offset: isize) -> [u64; 8] {
+        ptr.byte_offset(offset).cast::<[u64; 8]>().read()
+    }
+
     #[test]
     fn test_new_speq_in_basic() {
         let strings: Vec<Vec<u8>> = (0..512)
@@ -126,5 +131,15 @@ mod tests {
         let mut arena = unsafe { Arena::new_from(&slices) };
 
         unsafe { Speq::new_in(&mut arena, &slices) };
+
+        let mmax = unsafe { arena.read_usize(crate::arena::_MMAX_OFFSET) };
+        let speq_ptr = unsafe { arena.read_usize(crate::arena::_SPEQ_PTR_OFFSET) };
+        let speq_base = unsafe { arena.as_ptr().byte_add(speq_ptr) };
+
+        let block_base = unsafe { speq_base.byte_add(('`' as usize) * mmax) };
+
+        let vector0 = unsafe { load_m512(block_base, 0) };
+
+        assert_eq!(vector0, [u64::MAX; 8]);
     }
 }

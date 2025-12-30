@@ -6,15 +6,15 @@ use crate::speq::SliceStr;
 
 unsafe extern "C" {
 
-    unsafe static _SIZE_OFFSET: usize;
-    unsafe static _MMAX_OFFSET: usize;
-    unsafe static _BATCH_SIZE_OFFSET: usize;
-    unsafe static _BLOCKMAP_PTR_OFFSET: usize;
-    unsafe static _BLOCKSPILL_PTR_OFFSET: usize;
-    unsafe static _SPEQ_PTR_OFFSET: usize;
-    unsafe static _OUTPUT_STORE_PTR_OFFSET: usize;
-    unsafe static _ALPHABET_MASK_OFFSET: usize;
-    unsafe static _STORE_MASK_OFFSET: usize;
+    pub(crate) unsafe static _SIZE_OFFSET: usize;
+    pub(crate) unsafe static _MMAX_OFFSET: usize;
+    pub(crate) unsafe static _BATCH_SIZE_OFFSET: usize;
+    pub(crate) unsafe static _BLOCKMAP_PTR_OFFSET: usize;
+    pub(crate) unsafe static _BLOCKSPILL_PTR_OFFSET: usize;
+    pub(crate) unsafe static _SPEQ_PTR_OFFSET: usize;
+    pub(crate) unsafe static _OUTPUT_STORE_PTR_OFFSET: usize;
+    pub(crate) unsafe static _ALPHABET_MASK_OFFSET: usize;
+    pub(crate) unsafe static _STORE_MASK_OFFSET: usize;
 
     pub(crate) unsafe fn _arena_alloc(mmax: usize, batch_size: usize) -> *mut c_void;
 

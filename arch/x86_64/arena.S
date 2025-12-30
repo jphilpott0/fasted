@@ -132,6 +132,9 @@ _arena_alloc:
 
     ; END_OFFSET (i.e. arena size).
 
+    ; todo: this is aligning the end to page, not
+    ; the start of the output store!
+
     add             rax, 8191                           ; final size. 4096+4095=8191.
     and             rax, -4096                          ; align to page.
 
