@@ -40,13 +40,14 @@ _new_speq:
     push            r14                                 ; save r14.
     push            r15                                 ; save r15.
 
-    mov             r8,  [rdi + _MMAX_OFFSET]           ; r8 = mmax.
-    mov             r9,  [rdi + _BLOCKMAP_PTR_OFFSET]   ; r9 = blockmap ptr.
-    mov             r10, [rdi + _SPEQ_PTR_OFFSET]       ; r10 = speq ptr.
-    mov             [rdi + _BATCH_SIZE_OFFSET], rdx     ; set arena batch size value.
+    mov             r8,  [rdi + MMAX_OFFSET]            ; r8 = mmax.
+    mov             r9,  [rdi + BLOCKMAP_PTR_OFFSET]    ; r9 = blockmap ptr.
+    mov             r10, [rdi + SPEQ_PTR_OFFSET]        ; r10 = speq ptr.
+    mov             [rdi + BATCH_SIZE_OFFSET], rdx      ; set arena batch size value.
     mov             r15, rdi                            ; save arena ptr to r15.
 
-    lea             r9, [rdi + r9]                      ; calculate actual blockmap base addr.
+    lea             r9,  [r15 + r9]                     ; calculate actual blockmap base addr.
+    lea             r10, [r15 + r10]                    ; calculate actual speq base addr.
     mov             r11, rsi                            ; rename r11 = rsi.
     shl             r8, 6                               ; r8 = mmax * 64.
 
