@@ -30,7 +30,7 @@ impl Arena {
         Arena { ptr }
     }
 
-    pub(crate) unsafe fn new_from<'a, T>(s: T) -> Self
+    pub(crate) unsafe fn new_from<'a, T>(s: &T) -> Self
     where
         T: AsRef<[&'a [u8]]>,
     {
@@ -90,7 +90,7 @@ impl Debug for Arena {
         //
         // A properly instantiated `Arena` will follow the ABI used below, so reads are safe.
         unsafe {
-            // I'm interpreting the "pointers" here as integers because they are not real
+            // Interpreting the "pointers" here as integers because they are not real
             // pointers, they are virtual-ish pointers within my Arena space. Technically
             // better to call them offsets, but then I have my ABI detailing offsets to stored
             // offsets and that's far too confusing.
@@ -131,7 +131,7 @@ mod tests {
             .collect();
 
         let arena = unsafe {
-            Arena::new_from(strings.iter().map(|x| x.as_slice()).collect::<Vec<&[u8]>>())
+            Arena::new_from(&strings.iter().map(|x| x.as_slice()).collect::<Vec<&[u8]>>())
         };
 
         assert_eq!(unsafe { arena.size_of() }, 8462336);
