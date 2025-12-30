@@ -7,12 +7,7 @@ default rel
 
 global _new_speq
 
-extern _MMAX_OFFSET
-extern _BATCH_SIZE_OFFSET
-extern _STORE_MASK_OFFSET
-extern _BLOCKMAP_PTR_OFFSET
-extern _ALPHABET_MASK_OFFSET
-extern _SPEQ_PTR_OFFSET
+%include "arch/x86_64/abi.inc"
 
 ;
 ; _new_speq - Build a new speq in the provided arena.
@@ -70,7 +65,7 @@ _new_speq:
     shr             rbx, 3                              ; byte_offset = string_counter // 8.
     lea             rbx, [r10 + rbx]                    ; combine speq ptr + byte_offset.
 
-    mov byte [r15 + _STORE_MASK_OFFSET + rsi], 0x80     ; mark this length in the storemask.
+    mov byte [r15 + STORE_MASK_OFFSET + rsi], 0x80     ; mark this length in the storemask.
 
     test            rsi, rsi                            ; check if empty str.
     jz              .loop_outer_tail                    ; skip inner loop if so.
@@ -91,7 +86,7 @@ _new_speq:
 .loop_inner:
     movzx           rbp, byte [rdi + rsi - 1]           ; get next char.
 
-    mov byte [r15 + _ALPHABET_MASK_OFFSET + rbp], 0x80  ; mark this char in alphabetmask.
+    mov byte [r15 + ALPHABET_MASK_OFFSET + rbp], 0x80  ; mark this char in alphabetmask.
 
     imul            rbp, r8                             ; base_addr = char * (mmax * 64).
 
@@ -113,7 +108,7 @@ _new_speq:
     shr             r8, 6                               ; r8 = (mmax * 64) >> 6.
     inc             r8                                  ; r8 = mmax + 1.
     xor             rbx, rbx                            ; zero counter.
-    lea             rdi, [r15 + _STORE_MASK_OFFSET]     ; calculate store mask ptr.
+    lea             rdi, [r15 + STORE_MASK_OFFSET]     ; calculate store mask ptr.
 
     ; could vectorise this later, but small string 
     ; perf may suffer from extra mispredict.
