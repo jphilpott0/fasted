@@ -74,6 +74,14 @@ impl Arena {
     pub(crate) unsafe fn size_of(&self) -> usize {
         self.read_usize(_SIZE_OFFSET)
     }
+
+    pub(crate) unsafe fn as_ptr(&self) -> *const c_void {
+        self.ptr
+    }
+
+    pub(crate) unsafe fn as_mut_ptr(&mut self) -> *mut c_void {
+        self.ptr
+    }
 }
 
 impl Debug for Arena {
