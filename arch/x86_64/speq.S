@@ -36,12 +36,10 @@ _new_speq:
     push            r15                                 ; save r15.
 
     mov             r8,  [rdi + MMAX_OFFSET]            ; r8 = mmax.
-    mov             r9,  [rdi + BLOCKMAP_PTR_OFFSET]    ; r9 = blockmap ptr.
     mov             r10, [rdi + SPEQ_PTR_OFFSET]        ; r10 = speq ptr.
     mov             [rdi + BATCH_SIZE_OFFSET], rdx      ; set arena batch size value.
     mov             r15, rdi                            ; save arena ptr to r15.
 
-    lea             r9,  [r15 + r9]                     ; calculate actual blockmap base addr.
     lea             r10, [r15 + r10]                    ; calculate actual speq base addr.
     mov             r11, rsi                            ; rename r11 = rsi.
     shl             r8, 6                               ; r8 = mmax * 64.
@@ -61,9 +59,14 @@ _new_speq:
     mov             r12, 0x80                           ; r12 = 0x80.
     shr             r12, cl                             ; rmwmask (r12) = 0x80 >> bit_offset.
 
+    mov             r9, rsi                             ; r9 = chars left.
+    shl             r9, 6                               ; r9 = pos offset.
+
     mov             rbx, rdx                            ; rename rbx = string_counter.
     shr             rbx, 3                              ; byte_offset = string_counter // 8.
     lea             rbx, [r10 + rbx]                    ; combine speq ptr + byte_offset.
+    lea             rbx, [rbx + r9 - 64]                ; add pos_offset.
+
 
     mov byte [r15 + STORE_MASK_OFFSET + rsi], 0x80      ; mark this length in the storemask.
 
@@ -81,10 +84,15 @@ _new_speq:
 
     imul            rbp, r8                             ; base_addr = char * (mmax * 64).
 
+    ;
+    ; check: is this addr off-by-one?
+    ;
+
     mov             rax, r12                            ; rename rax = rmwmask.
     or              al, byte [rbp + rbx]                ; load required byte, OR single bit in.
     mov             byte [rbp + rbx], al                ; write back.
 
+    sub             rbx, 64                             ; offset by 64 bytes.
     dec             rsi                                 ; dec number of chars left.
     jnz             .loop_inner                         ; loop if chars left.
 
@@ -96,6 +104,9 @@ _new_speq:
     jne             .loop_outer_head                    ; loop if not.
 
 .blockmap:
+    mov             r9,  [r15 + BLOCKMAP_PTR_OFFSET]    ; r9 = blockmap ptr.
+    lea             r9,  [r15 + r9]                     ; calculate actual blockmap base addr.
+
     shr             r8, 6                               ; r8 = (mmax * 64) >> 6.
     inc             r8                                  ; r8 = mmax + 1.
     xor             rbx, rbx                            ; zero counter.

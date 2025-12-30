@@ -136,7 +136,7 @@ mod tests {
         let speq_ptr = unsafe { arena.read_usize(crate::arena::_SPEQ_PTR_OFFSET) };
         let speq_base = unsafe { arena.as_ptr().byte_add(speq_ptr) };
 
-        let block_base = unsafe { speq_base.byte_add(('`' as usize) * mmax) };
+        let block_base = unsafe { speq_base.byte_add(('a' as usize) * mmax * 64) };
 
         let vector0 = unsafe { load_m512(block_base, 0) };
 
