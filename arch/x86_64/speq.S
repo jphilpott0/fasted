@@ -49,6 +49,7 @@ _new_speq:
     shl             r14, 4                              ; r14 = string count -> total byte count.
     xor             rdx, rdx                            ; zero string counter.
 
+align 16
 .loop_outer_head:
     mov             rdi, [r11 + r13]                    ; load ptr to next str.
     mov             rsi, [r11 + r13 + 8]                ; load len of next str.
@@ -77,16 +78,17 @@ _new_speq:
     ; unroll this. extra guaranteed mispredict will
     ; be worth it for 2x throughput.
 
+    ; although this is already way too messy and using
+    ; way too many registers and probably should be
+    ; replaced with the method in the note at eof.
+
+align 16
 .loop_inner:
     movzx           rbp, byte [rdi + rsi - 1]           ; get next char.
 
     mov byte [r15 + ALPHABET_MASK_OFFSET + rbp], 0x80   ; mark this char in alphabetmask.
 
     imul            rbp, r8                             ; base_addr = char * (mmax * 64).
-
-    ;
-    ; check: is this addr off-by-one?
-    ;
 
     mov             rax, r12                            ; rename rax = rmwmask.
     or              al, byte [rbp + rbx]                ; load required byte, OR single bit in.
@@ -96,6 +98,7 @@ _new_speq:
     dec             rsi                                 ; dec number of chars left.
     jnz             .loop_inner                         ; loop if chars left.
 
+align 16
 .loop_outer_tail:
     add             r13, 16                             ; add 16 bytes to byte counter.
     inc             rdx                                 ; inc string counter.
@@ -115,6 +118,10 @@ _new_speq:
     ; could vectorise this later, but small string 
     ; perf may suffer from extra mispredict.
 
+    ; => probably only super small strings though,
+    ; so go ahead with this at some point.
+
+align 16
 .blockmap_loop:
     mov             rcx, rbx                            ; copy rcx = rbx.
     and             rcx, 0x07                           ; rcx = rbx % 8.

@@ -64,6 +64,7 @@ _len_calculate_mmax:
     ; because a mispredict in jcc above is better 
     ; amortised by the big loop than the small loop.
 
+align 16
 .loop_small:
     mov             rdx, qword [rdi + rcx + 8]          ; get next len.
 
@@ -76,6 +77,7 @@ _len_calculate_mmax:
 
     jmp             .reduce                             ; once finish go to reduction.
 
+align 16
 .loop_big:
     MAX_FATPTR      rdi, rcx, 4, 64                     ; 4x unroll of max(acc_i, load(fatptr_i)).
     add             rcx, 256                            ; inc 256 B to current count (4x64B).
@@ -89,10 +91,10 @@ _len_calculate_mmax:
 
     jmp             .loop_small                         ; go to small loop to finish up tail.
 
+align 16
 .reduce:
     vpmaxuq         zmm0, zmm0, zmm1                    ; reduce acc 0 and 1.
     vpmaxuq         zmm2, zmm2, zmm3                    ; reduce acc 2 and 3.
-
     vpmaxuq         zmm0, zmm0, zmm2                    ; reduce acc [0,1] and [2,3].
 
     vextracti64x4   ymm1, zmm0, 1                       ; upper lanes into ymm1. (lower in ymm0).
@@ -110,5 +112,6 @@ _len_calculate_mmax:
 
     ret
 
+align 16
 .empty:
     ret                                                 ; rax is already 0.

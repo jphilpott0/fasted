@@ -28,6 +28,7 @@
 ; overallocate in the first instance, and zero any dirty pages before re-use. 
 ; Doing this all manually avoids a new mmap syscall and minimises, if not 
 ; eliminates, new page faults.
+;
 
 bits    64
 default rel
@@ -164,6 +165,7 @@ _arena_alloc:
 
     ret
 
+align 16
 .mmap_error:
     add             rsp, 72                             ; restore stack.
     ret
@@ -175,7 +177,7 @@ _arena_alloc:
 ;   rdi = ptr to arena.
 ;
 ; Return:
-;   rax = zero if successful. negative indicates failure, and is a munmap error code.
+;   rax = zero if successful. negative indicates failure, and is an munmap error code.
 ;
 align 32
 _arena_free:    
