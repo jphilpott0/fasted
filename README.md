@@ -120,9 +120,8 @@ still WIP, and hopefully soon will see whether this target is reached.
 This approach also has an asymptotic improvement, achieving 
 `O(m * n * ceil(k / w))`, where you have a batch of `k` strings to compare and
 `w`-bit words. Therefore, in this special case of batched string comparisons,
-the limitation of `m < w` having no effect on complexity is removed.
-
-For reference, comparing `k` strings with the original approach has complexity
+the limitation of `m < w` having no effect on complexity is removed. For 
+reference, comparing `k` strings with the original approach has complexity
 `O(k * n * ceil(m / w))`. In many cases, particularly in bioinformatics, it
 may be much easier to obtain large `k` than large `m`. When `k` is large, the
 complexity reduces to `O(k * m * n / w)`.
