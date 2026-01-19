@@ -70,10 +70,11 @@ this would allow a much larger `w` and hence more computation. However, these
 operations require a single `w`-bit integer, not many smaller packed integers
 within a `w`-bit register. Instructions for these operations do not natively
 exist. While this logic can be fairly easily emulated, it has nonetheless
-complicated implementations enough such that SIMD has been largely avoided.
-Furthermore, because both the emulated addition and shift steps would require
-expensive operations between SIMD lanes, this adds a substantial latency penalty
-compared to the rest of the loop (and this code is typically latency bound).
+complicated existing implementations enough such that SIMD has been largely 
+avoided. Furthermore, because both the emulated addition and shift steps would 
+require expensive operations between SIMD lanes, this adds a substantial latency 
+penalty compared to the rest of the loop (and this code is typically latency 
+bound).
 
 `fasted`'s approach differs by instead of processing `w` bits of a column from 
 a single string, it tackles the case where you have `w` different strings that 
@@ -115,7 +116,7 @@ uops) for a throughput of 409.6 cell updates per cycle. Assuming a 5 GHz clock
 per core. The fastest AVX-512 implementation of the original Myers formulation 
 sits around 50 billion cell updates per second per core. `fasted` has been 
 designed to approach this theoretical roofline as closely as possible. It is 
-still WIP, and hopefully soon will see whether this target is reached. 
+still WIP, but hopefully soon will show whether this target is reached. 
 
 This approach also has an asymptotic improvement, achieving 
 `O(m * n * ceil(k / w))`, where you have a batch of `k` strings to compare and
@@ -123,7 +124,7 @@ This approach also has an asymptotic improvement, achieving
 the limitation of `m < w` having no effect on complexity is removed. For 
 reference, comparing `k` strings with the original approach has complexity
 `O(k * n * ceil(m / w))`. In many cases, particularly in bioinformatics, it
-may be much easier to obtain large `k` than large `m`. When `k` is large, the
+may be much easier to obtain large `k` than large `m`. When `k >> w`, the
 complexity reduces to `O(k * m * n / w)`.
 
 This method only attempts to solve the multiple comparison case and is 
@@ -136,7 +137,7 @@ implementation can maintain a working set in `O(m / w)` space, `fasted` requires
 `O(n * w)`, which is much larger. As the mainloop is extremely fast, we must 
 load data from the working set rapidly. There is a complex register blocking 
 system used to ameliorate this; however, we still require very high memory 
-bandwidths. So high that the entire working set must ideally reside in L1/L2.
+bandwidths, so high that the entire working set must ideally reside in L1/L2.
 The moment it spills to shared L3/DRAM (L3 only in the case when there are 
 multiple cores running the mainloop concurrently), the algorithm becomes 
 strongly cache/memory bound and performance drops sharply. Hence again why this 
