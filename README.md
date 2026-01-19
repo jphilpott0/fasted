@@ -14,7 +14,7 @@ Bit-parallelism can substantially accelerate string matching and edit distance
 calculations by packing more computation into each instruction. The classic
 approach for this is from Myers (1999) which achieves an `O(n * ceil(m / w))`
 implementation, where `n` and `m` are string lengths, and `w` is the bit-width
-of the word used. The code for this is roughly:
+of the word used. The algorithm for this is roughly:
 
 ```c
 // Algorithm: Bit-parallel Levenshtein distance.
@@ -87,7 +87,8 @@ to a substantially simpler mainloop that is roughly:
 // Output: vp_new, vn_new, hp_new, hn_new.
 //
 // This forms the entire body of the mainloop. The actual looping logic, 
-// starting conditions, and peq construction are omitted for simplicity.
+// starting conditions, score counting and peq construction are omitted for 
+// simplicity.
 
 d0 = eq | vn | hn
 
@@ -123,14 +124,14 @@ the limitation of `m < w` having no effect on complexity is removed.
 
 For reference, comparing `k` strings with the original approach has complexity
 `O(k * n * ceil(m / w))`. In many cases, particularly in bioinformatics, it
-may be much easier to obtain large `k` than large `m`.
+may be much easier to obtain large `k` than large `m`. When `k` is large, the
+complexity reduces to `O(k * m * n / w)`.
 
 ```
 References:
 
 G. Myers, A fast bit-vector algorithm for approximate string matching based on 
 dynamic programming, J. ACM 46 (3) (1999) 395–415.
-
 ```
 
 #### Development Timeline:
