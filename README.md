@@ -127,6 +127,25 @@ For reference, comparing `k` strings with the original approach has complexity
 may be much easier to obtain large `k` than large `m`. When `k` is large, the
 complexity reduces to `O(k * m * n / w)`.
 
+This method only attempts to solve the multiple comparison case and is 
+particularly well suited for small to medium length strings. However, for a 
+single long pairwise string comparison, `fasted` is extremely slow, as this 
+effectively means that `k = 1` and we hence achieve complexity `O(m * n)`,
+completely eliminating the benefit of bit-parallelism. Furthermore, the biggest
+limiter here is the worse space complexity. While the standard Myers 
+implementation can maintain a working set in `O(m / w)` space, `fasted` requires
+`O(n * w)`, which is much larger. As the mainloop is extremely fast, we must 
+load data from the working set rapidly. There is a complex register blocking 
+system used to ameliorate this; however, we still require very high memory 
+bandwidths. So high that the entire working set must ideally reside in L1/L2.
+The moment it spills to shared L3/DRAM (L3 only in the case when there are 
+multiple cores running the mainloop concurrently), the algorithm becomes 
+strongly cache/memory bound and performance drops sharply. Hence again why this 
+approach is well suited for short to medium strings that require only a small 
+working set. For a 1 MiB L2, the approximate maximum tolerated string size is 
+around 4096 characters. Beyond that, performance will suffer. Fortunately,
+this is still sufficient for many cases in bioinformatics.
+
 ```
 References:
 
