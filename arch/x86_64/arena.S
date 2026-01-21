@@ -127,17 +127,15 @@ _arena_alloc:
 
     mov             r8, rdi                             ; rename mmax into r8.
     shl             r8, 14                              ; mmax << 14.
+    add             rax, 4095                           ; padding calc.
     add             rax, r8                             ; add to prev offset. already 64B aligned.
+    and             rax, -4096                          ; pad to next page.
 
     mov qword [rsp + OUTPUT_STORE_PTR_OFFSET], rax      ; save OUTPUT_STORE_OFFSET.
 
     ; END_OFFSET (i.e. arena size).
 
-    ; todo: this is aligning the end to page, not
-    ; the start of the output store!
-
-    add             rax, 8191                           ; final size. 4096+4095=8191.
-    and             rax, -4096                          ; align to page.
+    add             rax, 4096                           ; final size.
 
     mov qword [rsp + SIZE_OFFSET], rax                  ; save final size.
 
