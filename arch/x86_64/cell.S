@@ -112,12 +112,16 @@ _compute_dp_matrix:
     test            rdx, rdx                            ; test if input target string is empty.
     jz              .empty                              ; jump if so.
 
-    cmp             rdx, 8                              ; check if small variant needed.
-    jbe             .small                              ; jump if so.
+    cmp             rdx, 8                              ; check if small target variant needed.
+    jbe             .small_target                       ; jump if so.
 
-.setup:
     xor             rcx, rcx                            ; zero target char counter.
     mov             r8, [rdi + MMAX_OFFSET]             ; load mmax.
+
+    cmp             r8, 8                               ; check if small query variant needed.
+    jbe             .small_query                        ; jump if so.
+
+.setup:
     shl             r8, 6                               ; r8 = mmax * 64.
 
     mov             rbx, [rdi + SPEQ_PTR_OFFSET]        ; get speq ptr from arena.
@@ -135,7 +139,6 @@ _compute_dp_matrix:
     SET_ONES        zmm22
     SET_ONES        zmm26
     SET_ONES        zmm30
-
 
 .block_init0:
 
@@ -213,8 +216,12 @@ _compute_dp_matrix:
 
     ; todo: finish init stage. will need to write block store + load logic too.
 
-.small:
-    ; todo: small string variant.
+.small_target:
+    ; todo: small target string variant.
+    ret
+
+.small_query:
+    ; todo: small query string variant.
     ret
 
 .empty:
