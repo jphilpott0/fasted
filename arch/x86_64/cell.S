@@ -19,7 +19,7 @@ global _compute_dp_matrix
     vpternlogd      %1, %1, %1, 0xFF
 %endmacro
 
-%macro NEXT_CHAR 4
+%macro NEXT_CHAR 3
     ; Inputs:
     ; %1 = mmax * 64.
     ; %2 = target char output.
@@ -28,7 +28,7 @@ global _compute_dp_matrix
     ; Outputs:
     ; %2 = target char output.
 
-    mov             %2, byte %3                         ; get next target char.
+    movzx           %2, byte %3                         ; get next target char.
     imul            %2, %1                              ; base_addr = char * (mmax * 64).
 
 %endmacro
