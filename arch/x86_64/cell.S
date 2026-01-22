@@ -138,7 +138,13 @@ _compute_dp_matrix:
     SET_ONES        zmm18
     SET_ONES        zmm22
     SET_ONES        zmm26
-    SET_ONES        zmm30
+    SET_ONES        zmm28
+
+    ; reserve stack.
+
+    mov             r9, rdx                             ; r9 = target string len.
+    shl             r9, 7                               ; r9 = target string len * 128 bytes.
+    sub             rsp, r9                             ; reserve 128 * target_len bytes.
 
 .block_init0:
 
@@ -155,6 +161,19 @@ _compute_dp_matrix:
     ; NEXT_CELLS_INIT is used for (0, row) where hp = -1 and hn = 0 by 
     ; definition.
     ;
+
+    ; todo: harcoding the layout may be fastest for backend, but will it 
+    ; overload the frontend? will be fine in loop when uops are cached, but
+    ; this startup phase might be limited by decode throughput. none of the
+    ; instructions are over 10 bytes, so all 4 decoder slots will work (this
+    ; doesn't use SMT so cannot use second decoder).
+    ;
+    ; actually this is definitely frontend bound right now. we try 7 
+    ; instructions every 1.25c. that's 5.6 instructions per cycle, which
+    ; the 4 decoder slots cannot do.
+    ;
+    ; again, will be fine in the mainloop when the uop cache is used instead,
+    ; but technically slightly slower on block initialisation.
 
     ; cell (0, 0).
 
@@ -214,7 +233,153 @@ _compute_dp_matrix:
 
 .block_init4:
 
-    ; todo: finish init stage. will need to write block store + load logic too.
+    ; cell (0, 4).
+
+    NEXT_CHAR       r8, r10, [rsi + rcx + 4]
+    NEXT_CELLS_INIT zmm13, zmm12, zmm16, zmm17, [r10 + rbx + 0]
+
+    ; cell (1, 3).
+
+    NEXT_CHAR       r8, r10, [rsi + rcx + 3]
+    NEXT_CELLS      zmm5, zmm4, zmm8, zmm9, zmm31, [r10 + rbx + 64]
+
+    ; cell (2, 2).
+
+    NEXT_CHAR       r8, r10, [rsi + rcx + 2]
+    NEXT_CELLS      zmm0, zmm1, zmm2, zmm3, zmm31, [r10 + rbx + 128]
+
+    ; cell (3, 1).
+
+    NEXT_CHAR       r8, r10, [rsi + rcx + 1]
+    NEXT_CELLS      zmm10, zmm11, zmm7, zmm6, zmm31, [r10 + rbx + 192]
+
+    ; cell (4, 0).
+
+    NEXT_CHAR       r8, r10, [rsi + rcx + 0]
+    NEXT_CELLS      zmm18, zmm19, zmm15, zmm14, zmm31, [r10 + rbx + 256]
+
+.block_init5:
+
+    ; cell (0, 5).
+
+    NEXT_CHAR       r8, r10, [rsi + rcx + 5]
+    NEXT_CELLS_INIT zmm17, zmm16, zmm20, zmm21, [r10 + rbx + 0]
+
+    ; cell (1, 4).
+
+    NEXT_CHAR       r8, r10, [rsi + rcx + 4]
+    NEXT_CELLS      zmm9, zmm8, zmm12, zmm13, zmm31, [r10 + rbx + 64]
+
+    ; cell (2, 3).
+
+    NEXT_CHAR       r8, r10, [rsi + rcx + 3]
+    NEXT_CELLS      zmm3, zmm2, zmm4, zmm5, zmm31, [r10 + rbx + 128]
+
+    ; cell (3, 2).
+
+    NEXT_CHAR       r8, r10, [rsi + rcx + 2]
+    NEXT_CELLS      zmm6, zmm7, zmm1, zmm0, zmm31, [r10 + rbx + 192]
+
+    ; cell (4, 1).
+
+    NEXT_CHAR       r8, r10, [rsi + rcx + 1]
+    NEXT_CELLS      zmm14, zmm15, zmm11, zmm10, zmm31, [r10 + rbx + 256]
+
+    ; cell (5, 0).
+
+    NEXT_CHAR       r8, r10, [rsi + rcx + 0]
+    NEXT_CELLS      zmm22, zmm23, zmm19, zmm18, zmm31, [r10 + rbx + 320]
+
+.block_init6:
+
+    ; cell (0, 6).
+
+    NEXT_CHAR       r8, r10, [rsi + rcx + 6]
+    NEXT_CELLS_INIT zmm21, zmm20, zmm24, zmm25, [r10 + rbx + 0]
+
+    ; cell (1, 5).
+
+    NEXT_CHAR       r8, r10, [rsi + rcx + 5]
+    NEXT_CELLS      zmm13, zmm12, zmm16, zmm17, zmm31, [r10 + rbx + 64]
+
+    ; cell (2, 4).
+
+    NEXT_CHAR       r8, r10, [rsi + rcx + 4]
+    NEXT_CELLS      zmm5, zmm4, zmm8, zmm9, zmm31, [r10 + rbx + 128]
+
+    ; cell (3, 3).
+
+    NEXT_CHAR       r8, r10, [rsi + rcx + 3]
+    NEXT_CELLS      zmm0, zmm1, zmm2, zmm3, zmm31, [r10 + rbx + 192]
+
+    ; cell (4, 2).
+
+    NEXT_CHAR       r8, r10, [rsi + rcx + 2]
+    NEXT_CELLS      zmm10, zmm11, zmm7, zmm6, zmm31, [r10 + rbx + 256]
+
+    ; cell (5, 1).
+
+    NEXT_CHAR       r8, r10, [rsi + rcx + 1]
+    NEXT_CELLS      zmm18, zmm19, zmm15, zmm14, zmm31, [r10 + rbx + 320]
+
+    ; cell (6, 0).
+
+    NEXT_CHAR       r8, r10, [rsi + rcx + 0]
+    NEXT_CELLS      zmm26, zmm27, zmm23, zmm22, zmm31, [r10 + rbx + 384]
+
+.block_init7:
+
+    ; reverse order here because we need to do (7, 0) before (0, 7) to make the
+    ; registers available.
+
+    ; cell (7, 0).
+
+    NEXT_CHAR       r8, r10, [rsi + rcx + 0]
+    NEXT_CELLS      zmm28, zmm29, zmm27, zmm26, zmm31, [r10 + rbx + 448]
+
+    vmovdqa64       [rsp + 0], zmm29                        ; push hp to stack.
+    vmovdqa64       [rsp + 64], zmm28                       ; push hn to stack.
+
+    add             rsp, 128                                ; inc stack ptr by 128 bytes.
+
+    ; cell (6, 1).
+
+    NEXT_CHAR       r8, r10, [rsi + rcx + 1]
+    NEXT_CELLS      zmm22, zmm23, zmm27, zmm26, zmm31, [r10 + rbx + 384]
+
+    ; cell (5, 2).
+
+    NEXT_CHAR       r8, r10, [rsi + rcx + 2]
+    NEXT_CELLS      zmm14, zmm15, zmm11, zmm10, zmm31, [r10 + rbx + 320]
+
+    ; cell (4, 3).
+
+    NEXT_CHAR       r8, r10, [rsi + rcx + 3]
+    NEXT_CELLS      zmm6, zmm7, zmm1, zmm0, zmm31, [r10 + rbx + 256]
+
+    ; cell (3, 4).
+
+    NEXT_CHAR       r8, r10, [rsi + rcx + 4]
+    NEXT_CELLS      zmm3, zmm2, zmm4, zmm5, zmm31, [r10 + rbx + 192]
+
+    ; cell (2, 5).
+
+    NEXT_CHAR       r8, r10, [rsi + rcx + 5]
+    NEXT_CELLS      zmm9, zmm8, zmm12, zmm13, zmm31, [r10 + rbx + 128]
+
+    ; cell (1, 6).
+
+    NEXT_CHAR       r8, r10, [rsi + rcx + 6]
+    NEXT_CELLS      zmm17, zmm16, zmm20, zmm21, zmm31, [r10 + rbx + 64]
+
+    ; cell (0, 7).
+
+    ; NEXT_CELLS_INIT clobbers zmm28 and zmm29 but we have written the relevant
+    ; data to stack so don't need to keep it in registers anymore.
+
+    NEXT_CHAR       r8, r10, [rsi + rcx + 7]
+    NEXT_CELLS_INIT zmm25, zmm24, zmm28, zmm29, [r10 + rbx + 0]
+    
 
 .small_target:
     ; todo: small target string variant.
