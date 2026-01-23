@@ -168,8 +168,8 @@ _compute_dp_matrix:
     ; instructions are over 10 bytes, so all 4 decoder slots will work (this
     ; doesn't use SMT so cannot use second decoder).
     ;
-    ; actually this is definitely frontend bound right now. we try 7 
-    ; instructions every 1.25c. that's 5.6 instructions per cycle, which
+    ; actually this is definitely frontend bound right now. we try 8 
+    ; instructions every 1.25c. that's 6.4 instructions per cycle, which
     ; the 4 decoder slots cannot do.
     ;
     ; again, will be fine in the mainloop when the uop cache is used instead,
