@@ -1,6 +1,6 @@
 # fasted
 
-fasted ("**Fast** **e**dit **d**istance") is a WIP edit distance library written
+fasted ("**fast** **e**dit **d**istance") is a WIP edit distance library written
 in x86-64 Assembly and Rust optimised for processing batches of short to medium
 length strings in parallel.
 
