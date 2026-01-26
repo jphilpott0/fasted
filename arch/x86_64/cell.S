@@ -402,7 +402,75 @@ _compute_dp_matrix:
     je              .first_block_changeover             ; skip to changeover if finished.
 
 .first_block_main0:
-    ; todo: main stretch of first column.
+
+    ;
+    ; first_block_main - advance the wavefront.
+    ;
+    ; we need 16 manually unrolled iterations of the loop in order to return
+    ; to the original register layout, at which point we can loop as normal.
+    ;
+
+    ; cell 7.
+
+    NEXT_CHAR       r8, rax, [rsi + rcx - 8]
+    NEXT_CELLS      zmm24, zmm25, zmm21, zmm20, zmm31, [rax + rbx + 448]
+
+    vmovdqa64       [rsp], zmm25                        ; push block overflow hp to stack.
+    vmovdqa64       [rsp + 64], zmm24                   ; push block overflow hn to stack.
+
+    add             rsp, 128                            ; inc stack ptr by 128 bytes.
+
+    ; cell 6.
+
+    NEXT_CHAR       r8, rax, [rsi + rcx - 7]
+    NEXT_CELLS      zmm16, zmm17, zmm13, zmm12, zmm31, [rax + rbx + 384]
+
+    ; cell 5.
+
+    NEXT_CHAR       r8, rax, [rsi + rcx - 6]
+    NEXT_CELLS      zmm8, zmm9, zmm5, zmm4, zmm31, [rax + rbx + 320]
+
+    ; cell 4.
+
+    NEXT_CHAR       r8, rax, [rsi + rcx - 5]
+    NEXT_CELLS      zmm0, zmm1, zmm2, zmm3, zmm31, [rax + rbx + 256]
+
+    ; cell 3.
+
+    NEXT_CHAR       r8, rax, [rsi + rcx - 4]
+    NEXT_CELLS      zmm7, zmm6, zmm10, zmm11, zmm31, [rax + rbx + 192]
+
+    ; cell 2.
+
+    NEXT_CHAR       r8, rax, [rsi + rcx - 3]
+    NEXT_CELLS      zmm15, zmm14, zmm18, zmm19, zmm31, [rax + rbx + 128]
+
+    ; cell 1.
+
+    NEXT_CHAR       r8, rax, [rsi + rcx - 2]
+    NEXT_CELLS      zmm23, zmm22, zmm29, zmm28, zmm31, [rax + rbx + 64]
+
+    ; cell 0.
+
+    NEXT_CHAR       r8, rax, [rsi + rcx - 1]
+    NEXT_CELLS_INIT zmm28, zmm29, zmm25, zmm24, [rax + rbx + 0]
+
+    ; bounds check.
+
+    inc             rcx                                 ; inc target char counter by 1 byte.  
+
+    cmp             rcx, rdx                            ; check if more chars.
+    je              .first_block_changeover             ; jump to changeover if finished.
+
+.first_block_main1:
+
+    ; write out next round. analyse pattern. update macro with store logic.
+    ; update arena with mmax padding. once all stable, write macro to generate
+    ; all 16 iterations.
+    
+
+.first_block_changeover:
+    ; todo: write changeover.
 
 .small_target:
     ; todo: small target string variant.
