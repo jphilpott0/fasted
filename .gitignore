@@ -25,3 +25,4 @@ notes/
 # Temp files for working with asm and C.
 *.o
 *.out
+*.expanded.S
