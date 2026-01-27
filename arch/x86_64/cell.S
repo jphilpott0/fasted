@@ -30,7 +30,6 @@ global _compute_dp_matrix
 
     movzx           %2, byte %3                         ; get next target char.
     imul            %2, %1                              ; base_addr = char * (mmax * 64).
-
 %endmacro
 
 %macro NEXT_CELLS 6
@@ -62,7 +61,6 @@ global _compute_dp_matrix
     vpternlogd      %4, %5, %3, 0xF7                    ; vp = hn | ~(d0 & hp).
     vpandd          %1, %1, %5                          ; hn = vp & d0.
     vpandd          %3, %3, %5                          ; vn = hp & d0.
-
 %endmacro
 
 %macro NEXT_CELLS_INIT 5
@@ -88,7 +86,20 @@ global _compute_dp_matrix
     vpternlogd      %2, %2, %1, 0xF7                    ; hp = vn | ~(d0 & vp).
     vpandd          %1, %1, %3                          ; hn = vp & d0.
     vpternlogd      %4, %3, %3, 0x33                    ; vp = ~d0.
+%endmacro
 
+%macro ASSIGN_CELLS 5
+    ; Inputs:
+    ; %1 = cell index.
+    ; %2 = vp.
+    ; %3 = vn.
+    ; %4 = hp.
+    ; %5 = hn.
+
+    %assign %1_vp %2
+    %assign %1_vn %3
+    %assign %1_hp %4
+    %assign %1_hn %5
 %endmacro
 
 ;
@@ -401,7 +412,7 @@ _compute_dp_matrix:
     cmp             rcx, rdx                            ; check if more chars.
     je              .first_block_changeover             ; skip to changeover if finished.
 
-.first_block_main0:
+.first_block_main:
 
     ;
     ; first_block_main - advance the wavefront.
@@ -410,64 +421,87 @@ _compute_dp_matrix:
     ; to the original register layout, at which point we can loop as normal.
     ;
 
-    ; cell 7.
+    ; define starting register layout. the register layout has been 
+    ; manually fixed.
 
-    NEXT_CHAR       r8, rax, [rsi + rcx - 8]
-    NEXT_CELLS      zmm24, zmm25, zmm21, zmm20, zmm31, [rax + rbx + 448]
+    %assign         _tmp0    30
+    %assign         _tmp1    31
 
-    vmovdqa64       [rsp], zmm25                        ; push block overflow hp to stack.
-    vmovdqa64       [rsp + 64], zmm24                   ; push block overflow hn to stack.
+    ; setup preprocessor variables with register layout.
+    ASSIGN_CELLS    cell7, 24, 25, 29, 28
+    ASSIGN_CELLS    cell6, 16, 17, 21, 20
+    ASSIGN_CELLS    cell5,  8,  9, 13, 12
+    ASSIGN_CELLS    cell4,  0,  1,  5,  4
+    ASSIGN_CELLS    cell3,  7,  6,  2,  3
+    ASSIGN_CELLS    cell2, 15, 14, 10, 11
+    ASSIGN_CELLS    cell1, 23, 22, 18, 19
+    ASSIGN_CELLS    cell0, 28, 29, 26, 27
 
-    add             rsp, 128                            ; inc stack ptr by 128 bytes.
+    ; query addr shorthand.
+    %define         addr     rax + rbx + (j * 64)
 
-    ; cell 6.
+    ; compute 16 iterations of the mainloop.
+    %assign i 0
+    %rep 16
+        ; compute each of the 8 cells per outer iteration.
+        %assign j 7
+        %rep 8
+            ; define useless label just so that macro expansion is more legible.
+            .first_block_main_iter%[i]_cell%[j]:
 
-    NEXT_CHAR       r8, rax, [rsi + rcx - 7]
-    NEXT_CELLS      zmm16, zmm17, zmm13, zmm12, zmm31, [rax + rbx + 384]
+                ; shorthand for accessing the current zmm registers.
+                %xdefine zcell_vp zmm%[cell%[j]_vp]
+                %xdefine zcell_vn zmm%[cell%[j]_vn]
+                %xdefine zcell_hp zmm%[cell%[j]_hp]
+                %xdefine zcell_hn zmm%[cell%[j]_hn]
+                %xdefine ztmp0    zmm%[_tmp0]
+                %xdefine ztmp1    zmm%[_tmp1]
 
-    ; cell 5.
+                ; get next target char for this cell.
+                NEXT_CHAR r8, rax, [rsi + rcx - (j+1)]
 
-    NEXT_CHAR       r8, rax, [rsi + rcx - 6]
-    NEXT_CELLS      zmm8, zmm9, zmm5, zmm4, zmm31, [rax + rbx + 320]
+                ; update cells.
+                %if j = 0
+                    ; cycle unneeded hp/hn registers from cell 7.
+                    %assign cell0_hp cell7_hp
+                    %assign cell0_hn cell7_hn
+                    NEXT_CELLS_INIT zcell_vp, zcell_vn, zcell_hp, zcell_hn, [addr]
+                %else
+                    ; use hp and hn from cell j-1.
+                    %assign prev (j-1)
+                    %assign cell%[j]_hp cell%[prev]_hp
+                    %assign cell%[j]_hn cell%[prev]_hn
+                    NEXT_CELLS zcell_vp, zcell_vn, zcell_hp, zcell_hn, ztmp0, [addr]
+                %endif
 
-    ; cell 4.
+                ; fix the broken register layout. only in the preprocessor's 
+                ; variables, the actual registers are still swapped weirdly.
+                ; this just allows simpler macro programming.
+                %assign __tmp0      cell%[j]_vp
+                %assign __tmp1      cell%[j]_hp
+                %assign cell%[j]_vp cell%[j]_hn
+                %assign cell%[j]_hn __tmp0
+                %assign cell%[j]_hp cell%[j]_vn
+                %assign cell%[j]_vn __tmp1
 
-    NEXT_CHAR       r8, rax, [rsi + rcx - 5]
-    NEXT_CELLS      zmm0, zmm1, zmm2, zmm3, zmm31, [rax + rbx + 256]
+                ; if last cell of block, spill hp/hn to stack.
+                %if j = 7
+                    vmovdqa64   [rsp],      zcell_hp
+                    vmovdqa64   [rsp + 64], zcell_hn
+                    add         rsp, 128
+                %endif
 
-    ; cell 3.
+                ; don't cause underflow.
+                %ifn j = 0
+                    %assign j (j-1)
+                %endif
+        %endrep
+        %assign i (i+1)
 
-    NEXT_CHAR       r8, rax, [rsi + rcx - 4]
-    NEXT_CELLS      zmm7, zmm6, zmm10, zmm11, zmm31, [rax + rbx + 192]
-
-    ; cell 2.
-
-    NEXT_CHAR       r8, rax, [rsi + rcx - 3]
-    NEXT_CELLS      zmm15, zmm14, zmm18, zmm19, zmm31, [rax + rbx + 128]
-
-    ; cell 1.
-
-    NEXT_CHAR       r8, rax, [rsi + rcx - 2]
-    NEXT_CELLS      zmm23, zmm22, zmm29, zmm28, zmm31, [rax + rbx + 64]
-
-    ; cell 0.
-
-    NEXT_CHAR       r8, rax, [rsi + rcx - 1]
-    NEXT_CELLS_INIT zmm28, zmm29, zmm25, zmm24, [rax + rbx + 0]
-
-    ; bounds check.
-
-    inc             rcx                                 ; inc target char counter by 1 byte.  
-
-    cmp             rcx, rdx                            ; check if more chars.
-    je              .first_block_changeover             ; jump to changeover if finished.
-
-.first_block_main1:
-
-    ; write out next round. analyse pattern. update macro with store logic.
-    ; update arena with mmax padding. once all stable, write macro to generate
-    ; all 16 iterations.
-    
+        inc     rcx
+        cmp     rcx, rdx
+        je      .first_block_changeover
+    %endrep
 
 .first_block_changeover:
     ; todo: write changeover.
@@ -481,5 +515,5 @@ _compute_dp_matrix:
     ret
 
 .empty:
-    ; todo: edit distance is simply length of each query string.
+    ; todo: edit distance is simply length of each query string when empty.
     ret
