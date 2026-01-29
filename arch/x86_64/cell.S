@@ -120,6 +120,8 @@ global _compute_dp_matrix
 ;
 align 32
 _compute_dp_matrix:
+    ; todo: push anything callee-saved!
+
     test            rdx, rdx                            ; test if input target string is empty.
     jz              .empty                              ; jump if so.
 
@@ -155,6 +157,7 @@ _compute_dp_matrix:
     mov             r9, rdx                             ; r9 = target string len.
     shl             r9, 7                               ; r9 = target string len * 128 bytes.
     sub             rsp, r9                             ; reserve 128 * target_len bytes.
+    mov             r9, rsp                             ; r9 = original stack ptr.
 
 .first_block_init0:
 
@@ -199,10 +202,7 @@ _compute_dp_matrix:
     ; again, will be fine in the mainloop when the uop cache is used instead,
     ; but technically slightly slower on block initialisation.
     ;
-    ; possible algorithm for doing this as macro: cell (x, y) has same layout
-    ; as (x-1, y-1), and (i, 0) and (0, j) have calculable layouts. so either
-    ; can do this recursively (in a nasm macro though?) or maybe this has closed
-    ; form solution. check later.
+    ; todo: this manual layout will eventually be replaced by a macro.
     ;
 
     ; cell (0, 0).
@@ -410,7 +410,7 @@ _compute_dp_matrix:
     mov             rcx, 9                              ; target char counter = 9.
 
     cmp             rcx, rdx                            ; check if more chars.
-    je              .first_block_changeover             ; skip to changeover if finished.
+    je              .first_block_changeover0            ; skip to changeover if finished.
 
 .first_block_main:
 
@@ -443,40 +443,101 @@ _compute_dp_matrix:
     ; compute 16 iterations of the mainloop.
     %assign i 0
     %rep 16
-        ; compute each of the 8 cells per outer iteration.
-        %assign j 7
-        %rep 8
-            ; define useless label just so that macro expansion is more legible.
-            .first_block_main_iter%[i]_cell%[j]:
+        ; name iteration so we can jmp to after changeover.
+        .first_block_main%[i]:
+            ; compute each of the 8 cells per outer iteration.
+            %assign j 7
+            %rep 8
+                ; define useless label just so that macro expansion is more legible.
+                .first_block_main_iter%[i]_cell%[j]:
 
-                ; shorthand for accessing the current zmm registers.
-                %xdefine zcell_vp zmm%[cell%[j]_vp]
-                %xdefine zcell_vn zmm%[cell%[j]_vn]
-                %xdefine zcell_hp zmm%[cell%[j]_hp]
-                %xdefine zcell_hn zmm%[cell%[j]_hn]
-                %xdefine ztmp0    zmm%[_tmp0]
-                %xdefine ztmp1    zmm%[_tmp1]
+                    ; shorthand for accessing the current zmm registers.
+                    %xdefine zcell_vp zmm%[cell%[j]_vp]
+                    %xdefine zcell_vn zmm%[cell%[j]_vn]
+                    %xdefine zcell_hp zmm%[cell%[j]_hp]
+                    %xdefine zcell_hn zmm%[cell%[j]_hn]
+                    %xdefine ztmp0    zmm%[_tmp0]
+                    %xdefine ztmp1    zmm%[_tmp1]
 
-                ; get next target char for this cell.
-                NEXT_CHAR r8, rax, [rsi + rcx - (j+1)]
+                    ; get next target char for this cell.
+                    NEXT_CHAR r8, rax, [rsi + rcx - (j+1)]
 
-                ; update cells.
+                    ; update cells.
+                    %if j = 0
+                        ; cycle unneeded hp/hn registers from cell 7.
+                        %assign cell0_hp cell7_hp
+                        %assign cell0_hn cell7_hn
+                        NEXT_CELLS_INIT zcell_vp, zcell_vn, zcell_hp, zcell_hn, [addr]
+                    %else
+                        ; use hp and hn from cell j-1.
+                        %assign prev (j-1)
+                        %assign cell%[j]_hp cell%[prev]_hp
+                        %assign cell%[j]_hn cell%[prev]_hn
+                        NEXT_CELLS zcell_vp, zcell_vn, zcell_hp, zcell_hn, ztmp0, [addr]
+                    %endif
+
+                    ; fix the broken register layout. only in the preprocessor's 
+                    ; variables, the actual registers are still swapped weirdly.
+                    ; this just allows simpler macro programming.
+                    %assign __tmp0      cell%[j]_vp
+                    %assign __tmp1      cell%[j]_hp
+                    %assign cell%[j]_vp cell%[j]_hn
+                    %assign cell%[j]_hn __tmp0
+                    %assign cell%[j]_hp cell%[j]_vn
+                    %assign cell%[j]_vn __tmp1
+
+                    ; if last cell of block, spill hp/hn to stack.
+                    %if j = 7
+                        vmovdqa64   [rsp],      zcell_hp
+                        vmovdqa64   [rsp + 64], zcell_hn
+                        add         rsp, 128
+                    %endif
+
+                    ; don't cause underflow.
+                    %ifn j = 0
+                        %assign j (j-1)
+                    %endif
+            %endrep
+            %assign i (i+1)
+
+            ; bounds check.
+            inc     rcx
+            cmp     rcx, rdx
+            je      .block_changeover%[i]
+    %endrep
+
+    ; continue loop if more target chars.
+    jmp         .first_block_main
+
+.block_changeover:
+
+    %assign i 0
+    %rep 16
+        ; reset register layout.
+        ASSIGN_CELLS    cell7, 24, 25, 29, 28
+        ASSIGN_CELLS    cell6, 16, 17, 21, 20
+        ASSIGN_CELLS    cell5,  8,  9, 13, 12
+        ASSIGN_CELLS    cell4,  0,  1,  5,  4
+        ASSIGN_CELLS    cell3,  7,  6,  2,  3
+        ASSIGN_CELLS    cell2, 15, 14, 10, 11
+        ASSIGN_CELLS    cell1, 23, 22, 18, 19
+        ASSIGN_CELLS    cell0, 28, 29, 26, 27
+
+        ; calculate register layout after `i` iterations of mainloop.
+        %rep i
+            %assign j 7
+            %rep 8
+                ; advance hp/hn between cells.
                 %if j = 0
-                    ; cycle unneeded hp/hn registers from cell 7.
                     %assign cell0_hp cell7_hp
                     %assign cell0_hn cell7_hn
-                    NEXT_CELLS_INIT zcell_vp, zcell_vn, zcell_hp, zcell_hn, [addr]
                 %else
-                    ; use hp and hn from cell j-1.
                     %assign prev (j-1)
                     %assign cell%[j]_hp cell%[prev]_hp
                     %assign cell%[j]_hn cell%[prev]_hn
-                    NEXT_CELLS zcell_vp, zcell_vn, zcell_hp, zcell_hn, ztmp0, [addr]
                 %endif
 
-                ; fix the broken register layout. only in the preprocessor's 
-                ; variables, the actual registers are still swapped weirdly.
-                ; this just allows simpler macro programming.
+                ; simulate fixing register layout.
                 %assign __tmp0      cell%[j]_vp
                 %assign __tmp1      cell%[j]_hp
                 %assign cell%[j]_vp cell%[j]_hn
@@ -484,27 +545,93 @@ _compute_dp_matrix:
                 %assign cell%[j]_hp cell%[j]_vn
                 %assign cell%[j]_vn __tmp1
 
-                ; if last cell of block, spill hp/hn to stack.
-                %if j = 7
-                    vmovdqa64   [rsp],      zcell_hp
-                    vmovdqa64   [rsp + 64], zcell_hn
-                    add         rsp, 128
-                %endif
-
-                ; don't cause underflow.
+                ; decrement.
                 %ifn j = 0
                     %assign j (j-1)
                 %endif
+            %endrep
         %endrep
+
+        .block_changeover%[i]:
+            ; perform 8 iterations to get entire 8-wide wavefront
+            ; into the new block.
+            %assign k 0
+            %rep 8
+                ; update all 8 cells per iteration.
+                %assign j 7
+                %rep 8
+                    ; adjust query addr if this cell is now in new block.
+                    %if k >= j
+                        %assign block_offset 512
+                    %else
+                        %assign block_offset 0
+                    %endif
+
+                    ; todo: remember that new block means new vp/vn!
+                    ; very easy to just zero ig, but check.
+
+                    ; update cells.
+                    %if j = 0
+                        ; cycle unneeded hp/hn registers from cell 7.
+                        %assign cell0_hp cell7_hp
+                        %assign cell0_hn cell7_hn
+
+                        ; cell 0 is always in new block, so load spilled hp/hn from stack.
+                        vmovdqa64   zcell_hp, [r9]
+                        vmovdqa64   zcell_hn, [r9 + 64]
+                        add         r9, 128
+            
+                        NEXT_CELLS zcell_vp, zcell_vn, zcell_hp, zcell_hn, [addr + block_offset]
+                    %else
+                        ; use hp and hn from cell j-1.
+                        %assign prev (j-1)
+                        %assign cell%[j]_hp cell%[prev]_hp
+                        %assign cell%[j]_hn cell%[prev]_hn
+                        NEXT_CELLS zcell_vp, zcell_vn, zcell_hp, zcell_hn, ztmp0, [addr + block_offset]
+                    %endif
+
+                    ; fix the broken register layout. only in the preprocessor's 
+                    ; variables, the actual registers are still swapped weirdly.
+                    ; this just allows simpler macro programming.
+                    %assign __tmp0      cell%[j]_vp
+                    %assign __tmp1      cell%[j]_hp
+                    %assign cell%[j]_vp cell%[j]_hn
+                    %assign cell%[j]_hn __tmp0
+                    %assign cell%[j]_hp cell%[j]_vn
+                    %assign cell%[j]_vn __tmp1
+
+                    ; todo: write cell7 of last iter to start of stack.
+                    ; figure out registers. rsp is needed to write last
+                    ; parts of prev block. r9 is needed to read from new
+                    ; block. but then ig on cell7 last iter we just set
+                    ; rsp = r9 - 7*128 and then write to rsp. and then
+                    ; keep using r9 to load from next in proper mainloop.
+
+                    ; if last cell of block, spill hp/hn to stack.
+                    %if j = 7
+                        %ifn k = 7
+                            vmovdqa64   [rsp],      zcell_hp
+                            vmovdqa64   [rsp + 64], zcell_hn
+                            add         rsp, 128
+                        %else
+                            vmovdqa64   [rsp],      zcell_hp
+                            vmovdqa64   [rsp + 64], zcell_hn
+                            add         rsp, 128
+                    %endif
+
+                    ; todo: overall, we need to do all 8 iterations to get
+                    ; cell7 at (7, 0) in new block already evaluated.
+
+                    ; decrement.
+                    %ifn j = 0
+                        %assign j (j-1)
+                    %endif
+                %endrep
+            %assign k (k+1)
+            %endrep
+            add     rbx, 512                            ; inc query offset.
         %assign i (i+1)
-
-        inc     rcx
-        cmp     rcx, rdx
-        je      .first_block_changeover
     %endrep
-
-.first_block_changeover:
-    ; todo: write changeover.
 
 .small_target:
     ; todo: small target string variant.
