@@ -256,41 +256,45 @@ logical uops every cycle), it appears this is not possible due to Zen5's data
 port limitation. Zen5 has 10 data ports that supply EUs with register values
 from the VRF, and hence can supply 10 unique 512b values per cycle. Notably,
 uops in the EUs on the same cycle requiring the same register value can elide
-duplicate reads to the VRF and use a single data port. A mainloop block consists
-of 3x `vpternlogd` and 2x `vpandd` instructions, the former taking 3 inputs and
-the latter taking 2. This is 13 VRF reads per block update, and executed every
-1.25c, that is on average 10.4 reads per cycle. Of course, this exceeds the
-available number of VRF reads the 10 data ports can supply. Furthermore, the
-number of VRF reads possible is integer, and if a uop cannot obtain enough data
-ports to make all its required VRF reads, it (I believe) stalls in the EU for a 
-cycle, wasting the EU slot and leaving some data ports unused. Therefore, even
-though 10.4 is only slightly over 10, the real disruption to uop execution is
-actually much greater. Now, within a block update, some inputs are re-used 
-multiple times, possibly allowing eliding duplicate reads. However, because we
-maintain our register tiling setup, and each of the 8x unrolled blocks have
-independent inputs and execution, the schedulers appear to be drawing uops at
-random from all 8 available blocks (i.e. OoO execution), rather than evaluating
-each block in order. Therefore, it is increasingly unlikely that two uops from
-the same block which share the same inputs that could elide a VRF read are
-executed at the same time. This scrambling of uops worsens the larger our unroll
-in the register tiling system is, because there is more independent work to draw
-from at random. Of course, the tiling system is imperative to reduce L1D cache
-accesses which would otherwise bottleneck throughput; if each block were to load
-its five input bit-vectors from L1D, then we'd need to load 320 bytes and store
-256 bytes back every block (in practice you could maintain a vp/vn or hp/hn pair
-in registers since, depending on the order of matrix evaluation, one pair is
-immediately used in the calculation of the next block). Even if forcing uops
-from the same block to be evaluated simultaneously this way theoretically could
-yield a 1.25c throughput, you of course cannot read 320 bytes from and write 256 
-bytes to L1D every 1.25c! You would be completely bottlenecked by FP45
-throughput (per cycle: 128B read / 64B read, 64B store). Furthermore, if the
-working set exceeded L1D and spilled into L2, which is likely at all but the
-smallest target strings (approximately when `n > 96-128`), then you would become
-even further bottlenecked by the 64B datapath between L1 and L2. Lion Cove has
-slightly more throughput here, but it still is far too slow (and not that 
-AVX-512 on Lion Cove is even available until Diamond Rapids anyway). Overall,
-it remains fastest to keep the 8x block unroll to combat cache throughput 
-limitations and accept the VRF data port issue as a final unavoidable 
+duplicate reads to the VRF and use a single data port.
+
+A mainloop block consists of 3x `vpternlogd` and 2x `vpandd` instructions, the
+former taking 3 inputs and the latter taking 2. This is 13 VRF reads per block
+update, and executed every 1.25c, that is on average 10.4 reads per cycle. Of
+course, this exceeds the available number of VRF reads the 10 data ports can
+supply. Furthermore, the number of VRF reads possible is integer, and if a uop
+cannot obtain enough data ports to make all its required VRF reads, it
+(I believe) stalls in the EU for a cycle, wasting the EU slot and leaving some
+data ports unused. Therefore, even though 10.4 is only slightly over 10, the
+real disruption to uop execution is actually much greater. Now, within a block
+update, some inputs are re-used multiple times, possibly allowing eliding
+duplicate reads. However, because we maintain our register tiling setup, and
+each of the 8x unrolled blocks have independent inputs and execution, the
+schedulers appear to be drawing uops at random from all 8 available blocks
+(i.e. OoO execution), rather than evaluating each block in order. Therefore, it
+is increasingly unlikely that two uops from the same block which share the same
+inputs that could elide a VRF read are executed at the same time. This
+scrambling of uops worsens the larger our unroll in the register tiling system
+is, because there is more independent work to draw from at random.
+
+Of course, the tiling system is imperative to reduce L1D cache accesses which
+would otherwise bottleneck throughput; if each block were to load its five input
+bit-vectors from L1D, then we'd need to load 320 bytes and store 256 bytes back
+every block (in practice you could maintain a vp/vn or hp/hn pair in registers
+since, depending on the order of matrix evaluation, one pair is immediately used
+in the calculation of the next block). Even if forcing uops from the same block
+to be evaluated simultaneously this way theoretically could yield a 1.25c
+throughput, you of course cannot read 320 bytes from and write 256 bytes to L1D
+every 1.25c! You would be completely bottlenecked by FP45 throughput (per cycle:
+128B read / 64B read, 64B store). Furthermore, if the working set exceeded L1D
+and spilled into L2, which is likely at all but the smallest target strings
+(approximately when `n > 96-128`), then you would become even further
+bottlenecked by the 64B datapath between L1 and L2. Lion Cove has slightly more
+throughput here, but it still is far too slow (and not that AVX-512 on Lion Cove
+is even available until Diamond Rapids anyway).
+
+Overall, it remains fastest to keep the 8x block unroll to combat cache
+throughput limitations and accept the VRF data port issue as a final unavoidable 
 bottleneck. My measurements show a block update completing in ~1.75c on average.
 This is still extremely fast: 293 cell updates per cycle, or with a 5 GHz clock,
 about 1463 GCUPS per core. This is still two orders-of-magnitude times faster
