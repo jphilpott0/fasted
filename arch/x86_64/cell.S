@@ -71,19 +71,19 @@ _compute_dp_matrix:
     sub             rsp, r9                             ; reserve 128 * target_len bytes.
     mov             r9, rsp                             ; r9 = original stack ptr.
 
-.first_block_init:
+.first_tile_init:
 
     ;
-    ; first_block_init - setup 8-wide anti-diagonal wavefront in first column.
+    ; first_tile_init - setup 8-wide anti-diagonal wavefront in first tile.
     ;
     ; positioning below is (col, row).
     ;
     ; register layout:
     ;
-    ; vp: zmm{0, 4, 8, 12, 16, 20, 24, 28}.
-    ; vn: zmm{1, 5, 9, 13, 17, 21, 25, 29}.
-    ; hp: zmm{2, 6, 10, 14, 18, 22, 26, -}.
-    ; hn: zmm{3, 7, 11, 15, 19, 23, 27, -}.
+    ; vp: zmm{0, 4,  8, 12, 16, 20, 24, 28}.
+    ; vn: zmm{1, 5,  9, 13, 17, 21, 25, 29}.
+    ; hp: zmm{2, 6, 10, 14, 18, 22, 26,  -}.
+    ; hn: zmm{3, 7, 11, 15, 19, 23, 27,  -}.
     ;
     ; hp/hn of cell7 use a different layout.
     ;
@@ -98,7 +98,7 @@ _compute_dp_matrix:
     ; the 4 decoder slots cannot do.
     ;
     ; again, will be fine in the mainloop when the uop cache is used instead,
-    ; but technically slightly slower on block initialisation.
+    ; but technically slightly slower on tile initialisation.
     ;
     ; see expanded macros: 
     ; ```nasm -DDEBUG=1 -E arch/x86_64/cell.S | grep -v "%line" | cat -s```
@@ -146,7 +146,7 @@ _compute_dp_matrix:
 
             %if DEBUG
                 ; dummy label to help interpret expanded macro.
-                first_block_init_iter%[i]_cell%[j]:
+                first_tile_init_iter%[i]_cell%[j]:
             %endif
 
             ; shorthand for accessing the current zmm registers.
