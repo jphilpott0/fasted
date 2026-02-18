@@ -18,8 +18,10 @@ of the word used. The algorithm for this is roughly:
 // Output: score = edit_distance(t, p).
 //
 // Requires that m < word_size.
-// This can be resolved with the "blocked" variant of the algorithm. This is
-// just showing the basic variant for simplicity.
+// This can be resolved with the "blocked" variant of the algorithm. Below is
+// just showing the basic variant for simplicity. The blocked version has the
+// proper quadratic time complexity of `O(n * ceil(m / w))`, where `ceil(m / w)`
+// blocks are evaluated for each text character.
 
 peq[256] = {0}
 
