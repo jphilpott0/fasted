@@ -217,7 +217,7 @@ cannot possibly be used as an intermediate to calculate hp_out, then there
 exists no possible intermediate that satisfies both conditions. Equivalent logic
 applies perfectly for the vp_out/vn_out case. Hence there exists no possible
 four `vpternlogd` instruction system that can calculate the cell transition.
-Q.E.D.
+Proof by contradiction. Q.E.D.
 
 We can immediately prove the existence of a 5 `vpternlogd` instruction system 
 with a working example:
