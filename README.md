@@ -4,10 +4,6 @@ fasted ("**fast** **e**dit **d**istance") is a WIP edit distance library written
 in x86-64 Assembly and Rust optimised for processing batches of short to medium
 length strings in parallel.
 
-This is in active development and will continue to be updated over the coming 
-weeks. Presently, the preprocessing stage and allocator have been written. The 
-remaining components have been designed and will be implemented soon.
-
 ## Basic Overview:
 
 Bit-parallelism can substantially accelerate string matching and edit distance
@@ -132,7 +128,7 @@ effectively means that `k = 1` and we hence achieve complexity `O(m * n)`,
 completely eliminating the benefit of bit-parallelism. Furthermore, the biggest
 limiter here is the worse space complexity. While the standard Myers 
 implementation can maintain a working set in `O(m)` space, `fasted` requires
-`O(n * w)`, which is probably much larger. As the mainloop is extremely fast, we
+`O(n * w)`, which is normally much larger. As the mainloop is extremely fast, we
 must load data from the working set rapidly. There is a register tiling system
 used to ameliorate this; however, we still require very high memory bandwidths,
 so high that the entire working set must ideally reside in L1/L2. The moment it
@@ -314,10 +310,8 @@ is a trick AMD recommended for benchmarking the true 1c latency of SIMD
 instructions on Zen5 cores as it prevents a CPU hazard; I figured the same
 principle could work here). Interestingly, adding a few NOPs did not degrade
 performance, albeit it did not improve it. Adding more noticeably worsened
-throughput. The vector NSQ probably complicates this since macro-ops can be
-drawn from that roughly at random into the renamers, scrambling the desired
-execution order. Adding junk register moves to bottleneck vector rename slots
-only degraded performance, probably because it prevented moving proper logical
+throughput. Adding junk register moves to bottleneck vector rename slots only
+degraded performance, probably because it prevented moving proper logical
 macro-ops to the schedulers from the NSQ (the IPC is high enough that we are 
 nearly filling all 6 rename slots natively anyway). Adding junk integer domain
 instructions to take dispatch slots (and thereby prevent issuing vector
