@@ -182,21 +182,21 @@ vn_out = hp & (eq | vn)
 Return: hp_out, hn_out, vp_out, vn_out.
 ```
 
-Both hp_out and vp_out are functions of four values and require 3.58 bits of
+Both `hp_out` and `vp_out` are functions of four values and require 3.58 bits of
 information to compute (hp/hn and vp/vn are mutually exclusive and therefore
 each pair has 1.58 bits of entropy, not 2 bits). This exceeds what a single
 `vpternlogd` can ever compute and therefore said instruction cannot calculate 
-either hp_out or vp_out from the initial cell state and must require some 
+either `hp_out` or `vp_out` from the initial cell state and must require some 
 intermediate value that condenses some of the information. Note, however, that
 such an intermediate itself would require a `vpternlogd` instruction to 
 compute. Therefore, in any system of four `vpternlogd` instructions capable of
 computing the cell transition, such an intermediate would have to be the value
-hn_out for hp_out and vn_out for vp_out. This is because the intermediate for
-hp_out in tandem with hp_out itself, must contain 1.58 bits of information
-towards representing the collective state of hp_out and hn_out. Of course, the
-only intermediate value capable of doing this is hn_out itself. This logic 
-applies equivalently to vp_out and vn_out. However, observe the value of hn_out
-when vp is equal to zero:
+`hn_out` for `hp_out` and `vn_out` for `vp_out`. This is because the 
+intermediate for `hp_out` in tandem with `hp_out` itself, must contain 1.58 bits
+of information towards representing the collective state of `hp_out` and 
+`hn_out`. Of course, the only intermediate value capable of doing this is 
+`hn_out` itself. This logic applies equivalently to `vp_out` and `vn_out`. 
+However, observe the value of `hn_out` when vp is equal to zero:
 
 ```
 When vp = 0:
@@ -207,17 +207,17 @@ hn_out = 0 & (eq | hn)
 ```
 
 In the case when vp is equal to zero, the information from both eq and hn is
-lost, and hn_out becomes no more informative than vp alone. Therefore, in this
-worst-case scenario, hn_out is a function that maps 1 bit of information to 1
-bit of information, and therefore cannot be our intermediate to calculate hp_out
-because it does not condense any more useful information than already available
-into the intermediate when vp = 0. Therefore, if hn_out is the only possible
-intermediate that would also emit all required output state from the cell, but
-cannot possibly be used as an intermediate to calculate hp_out, then there
-exists no possible intermediate that satisfies both conditions. Equivalent logic
-applies perfectly for the vp_out/vn_out case. Hence there exists no possible
-four `vpternlogd` instruction system that can calculate the cell transition.
-Proof by contradiction. Q.E.D.
+lost, and `hn_out` becomes no more informative than vp alone. Therefore, in this
+worst-case scenario, `hn_out` is a function that maps 1 bit of information to 1
+bit of information, and therefore cannot be our intermediate to calculate
+`hp_out` because it does not condense any more useful information than already
+available into the intermediate when `vp = 0`. Therefore, if `hn_out` is the 
+only possible intermediate that would also emit all required output state from
+the cell, but cannot possibly be used as an intermediate to calculate `hp_out`,
+then there exists no possible intermediate that satisfies both conditions.
+Equivalent logic applies perfectly for the `vp_out`/`vn_out` case. Hence there
+exists no possible four `vpternlogd` instruction system that can calculate the
+cell transition. Proof by contradiction, Q.E.D.
 
 We can immediately prove the existence of a 5 `vpternlogd` instruction system 
 with a working example:
