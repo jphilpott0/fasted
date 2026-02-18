@@ -244,9 +244,10 @@ not meant to be in and has no effect on the cell output, while allowing the
 calculation of a single shared intermediate. One technical note: both `hn_out`
 and `vn_out` should be calculated with `vpandd` instead of `vpternlogd` because
 they only require two input operands, and a Zen5 core only has 10 data ports,
-which we would exceed with 5x `vpternlogd`. Finally, as Ukkonen has already
-proven the Levenshtein automaton as optimal, and no four `vpternlogd` system
-exists, it follows that this cell transition kernel is also proven optimal.
+which we would exceed with 5x `vpternlogd`. Finally, as Ukkonen (1985) has
+already proven the Levenshtein automaton as optimal, and no four `vpternlogd`
+system exists, it follows that this cell transition update is also proven
+optimal.
 
 ## Preliminary Benchmarks:
 
