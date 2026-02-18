@@ -16,8 +16,10 @@ int main(void) {
     CPU_SET(0, &set);
     sched_setaffinity(0, sizeof(set), &set);
 
-    uint64_t base  = _minimal_rename_avx2();
+    // uint64_t base  = _minimal_rename_avx2();
     // uint64_t extra = _extra_rename_avx2();
+    
+    uint64_t base_avx512 = _extra_rename_avx2();
 
     return 0;
 }

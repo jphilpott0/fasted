@@ -75,14 +75,14 @@ global  _extra_rename_avx2
 
 align 32
 _minimal_rename:
-    mov             rdi, 1
+    mov             rdi, 64
 
     mov             r10, rsp
 
-    sub             rsp, 256
+    sub             rsp, 1024
     and             rsp, -64
 
-    mov             byte [rsp + 128], 0x41
+    mov             byte [rsp + 128], 0x45
 
     ; record cycle count.
 
@@ -93,7 +93,7 @@ _minimal_rename:
     or              rax, rdx
     mov             r8, rax
 
-    mov             rcx, 100_000_000                    ; 100 million iterations.
+    mov             rcx, 1_000_000_000                    ; 1 billion iterations.
 
 align 16
 .loop:
@@ -122,8 +122,8 @@ align 16
             ; this will technically allow store forwarding that is not present
             ; in the real loop, but latency is never an issue here anyway.
 
-            vmovdqa64   zmm2, [rsp]                         ; load any zmmword from stack.
-            vmovdqa64   zmm3, [rsp + 64]                    ; load any zmmword from stack.
+            vmovdqa64   zmm2, [rsp + 512]                   ; load any zmmword from stack.
+            vmovdqa64   zmm3, [rsp + 512 + 64]              ; load any zmmword from stack.
         %endif
 
 
@@ -272,7 +272,8 @@ _minimal_rename_avx2:
     sub             rsp, 1024
     and             rsp, -64
 
-    mov             byte [rsp + 128], 0x41
+    mov             byte [rsp + 128], 0x45
+    mov             r11, 0
 
     ; record cycle count.
 
@@ -352,6 +353,14 @@ align 16
         vpandd          ymm%+hp, ymm%+hp, ymm31
         ; vpternlogd      ymm%+hp, ymm%+hp, ymm31, 0x88
 
+        ; add rsp, r11
+
+        ; %if i % 1 = 0
+        ;     ; add r11, r10
+        ;     ; mov r11, r12
+        ;     ; mov r12, r11
+        ; %endif
+
         %ifn i = 0
             %assign i (i-1)
         %endif
@@ -387,10 +396,10 @@ _extra_rename_avx2:
 
     mov             r10, rsp
 
-    sub             rsp, 256
+    sub             rsp, 1024
     and             rsp, -64
 
-    mov             byte [rsp + 128], 0x41
+    mov             byte [rsp + 128], 0x44
 
     ; record cycle count.
 
@@ -399,7 +408,7 @@ _extra_rename_avx2:
     or              rax, rdx
     mov             r8, rax
 
-    mov             rcx, 1_000_000_000                  ; 1 billion iterations.
+    mov             rcx, 1_000_000_000                  ; 10 billion iterations.
 
 align 16
 .loop:
@@ -426,6 +435,8 @@ align 16
 
         ; add extra renames to see if they affect performance.
         %ifn i = 0
+            %assign         vp_prev (4*(i-1)+0)
+            %assign         vn_prev (4*(i-1)+1)
             %assign         hp_prev (4*(i-1)+2)
             %assign         hn_prev (4*(i-1)+3)
 
@@ -434,6 +445,12 @@ align 16
 
             vmovdqa64       ymm%+hp, ymm%+hp_prev
             vmovdqa64       ymm%+hn, ymm%+hn_prev
+
+            ; vmovdqa64       ymm%+vp, ymm%+vp_prev
+            ; vmovdqa64       ymm%+vn, ymm%+vn_prev
+
+            ; vmovdqa64       ymm30, ymm31
+            ; vmovdqa64       ymm0, ymm29
         %else
             vmovdqa64       ymm%+hp, [rsp + 512]              ; load any ymmword from stack.
             vmovdqa64       ymm%+hn, [rsp + 512 + 64]         ; load any ymmword from stack.
