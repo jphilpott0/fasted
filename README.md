@@ -148,7 +148,7 @@ sufficient for many cases in bioinformatics.
 
 The configuration that computes the Levenshtein automaton in the fewest number 
 of `vpternlogd` instructions utilises five such instructions. It is in fact
-impossible to represent the kernel in any fewer, as can be shown via information
+impossible to represent the update in any fewer, as can be shown via information
 theory.
 
 Consider the automaton cell transition: we input 18 states and output 9. This is
