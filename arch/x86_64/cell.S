@@ -13,31 +13,6 @@ global _compute_dp_matrix
     %define DEBUG 0
 %endif
 
-%macro NEXT_CELLS_INIT 5
-    ; Inputs:
-    ; %1 = vp.
-    ; %2 = vn.
-    ; %3 = tmp0.
-    ; %4 = tmp1.
-    ; %5 = [eq addr].
-
-    ; Outputs:
-    ; %1 = hn.
-    ; %2 = hp.
-    ; %3 = vn.
-    ; %4 = vp.
-
-    ; special variant of NEXT_CELLS for the first column where hp = -1 and 
-    ; hn = 0 by definition. this gives the simplified logic implemented below.
-
-    vmovdqa64       %3, %2                              ; rename tmp0 = vn.
-
-    vpord           %3, %2, %5                          ; vn = d0 = eq | vn.
-    vpternlogd      %2, %2, %1, 0xF7                    ; hp = vn | ~(d0 & vp).
-    vpandd          %1, %1, %3                          ; hn = vp & d0.
-    vpternlogd      %4, %3, %3, 0x33                    ; vp = ~d0.
-%endmacro
-
 %macro ASSIGN_CELLS 5
     ; Inputs:
     ; %1 = cell index.
