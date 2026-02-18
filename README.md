@@ -337,7 +337,7 @@ AMD, Software Optimization Guide for the AMD Zen 5 Microarchitecture,
 G. Myers, A fast bit-vector algorithm for approximate string matching based on 
 dynamic programming, J. ACM 46 (3) (1999) 395–415.
 
-Ukkonen. E, Finding approximate patterns in strings, Journal of Algorithms, 
+E. Ukkonen, Finding approximate patterns in strings, Journal of Algorithms, 
 6(1) (1985) 132–137.
 ```
 
