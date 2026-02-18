@@ -336,6 +336,7 @@ incredible.
 
 ```
 References:
+
 AMD, Software Optimization Guide for the AMD Zen 5 Microarchitecture,
 (2024). https://docs.amd.com/v/u/en-US/58455_1.00.
 
