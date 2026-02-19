@@ -21,7 +21,9 @@ of the word used. The algorithm for this is roughly:
 // This can be resolved with the "blocked" variant of the algorithm. Below is
 // just showing the basic variant for simplicity. The blocked version has the
 // proper quadratic time complexity of `O(n * ceil(m / w))`, where `ceil(m / w)`
-// blocks are evaluated for each text character.
+// blocks are evaluated for each text character. The blocked variant simply
+// requires propagating the carries and overflows form the addition and shift
+// calculations into the next block.
 
 peq[256] = {0}
 
@@ -246,6 +248,51 @@ which we would exceed with 5x `vpternlogd`. Finally, as Ukkonen (1985) has
 already proven the Levenshtein automaton as optimal, and no four `vpternlogd`
 system exists, it follows that this cell transition update is also proven
 optimal.
+
+## Speq Construction:
+
+The classic Myers algorithm builds a *pattern equality vector* (`peq`) that 
+contains a bitmask for every character of the accepted alphabet (typically all
+256 8-bit chars to facilitate programming the `peq` as a simple lookup table 
+with basic and fast addressing calculations). The bitmask for each character 
+encodes the presence of said character at each position in the pattern string. 
+The `peq` can then be indexed by the current character from the text string to 
+lookup the presence and positions thereof for said character, which is required
+in the automaton cell transition function (this value is normally denoted `eq`).
+
+Sequential bits in the `peq` correspond to sequential positions within the 
+single pattern string. In `fasted`, we bit-slice the approach across `w` 
+different pattern strings, parallelising across different strings rather than
+within. For the case where batches of pattern strings are available, this
+approach is substantially faster (see Basic Overview). Bit-slicing the cell
+transition function necessitates bit-slicing the `peq`. When loading a `w`-bit
+word, we now intend to lookup the presence of the current text string char 
+in the `i`th position across `w` different pattern strings. The next `w`-bit
+word denotes the presence of the same character in the `i+1`th position across
+`w` different strings. We term this data-structure a (bit-)sliced pattern
+equality vector, or `speq`. The `speq` is essentially an SoA transformation of 
+`w` different individual `peq`s (which collectively would be in an AoS layout).
+
+A `speq` has `O(256 * m * w)` space complexity, whereas a standard `peq` 
+requires only `O(256 * m)` space. If you processed `w` different pattern strings
+with the standard Myers algorithm, you need only to construct and allocate one
+`peq` at a time, and can then discard it before processing the next pattern 
+string. Hence even in the batched string case, the classic space complexity
+remains `O(256 * m)`. This produces one of the biggest drawbacks of `fasted`,
+the `speq` requires `w`-times more memory. While the total `speq` size is 
+unlikely to ever exceed a few megabytes, and therefore still has a relatively 
+small memory footprint, the greater concern is in cache usage. `fasted` computes
+cell updates so fast that it has to access the `speq` very rapidly; even a
+single core requires data at a throughput that far exceeds standard DRAM
+bandwidths (e.g. ~80 GB/s). This makes fitting the `speq` into cache imperative,
+as only these stores can provide data at the bandwidths required to remain
+compute bound. Once the `speq` is too large to reside entirely within cache,
+it spills to DRAM and `fasted` becomes memory bound.
+
+One important note with `speq` construction as opposed to `w` different `peq`
+constructions is that these have equivalent time complexity: `O(w * m)`, and in
+practice take the same amount of time too. This allows achieving this SoA layout
+at no additional cost.
 
 ## Preliminary Benchmarks:
 
